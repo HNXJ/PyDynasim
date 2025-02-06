@@ -92,7 +92,12 @@ class GeneticSGD(Optimizer):
 
                 p.data.add_(-group['lr'], d_p)
 
-        if loss < self.best_loss:
+        if loss is None:
+
+            return loss
+
+        elif loss < self.best_loss:
+
             self.best_loss = loss
             self.best_params = [p.clone().detach() for group in self.param_groups for p in group['params']]
 
