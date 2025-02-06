@@ -2,14 +2,15 @@ import torch
 import numpy as np
 import torch.nn as nn
 import torch.optim as optim
-
+from torch.optim import Optimizer
+import torch.distributions as dist
 
 class Dynalearn:
 
     def __init__(self, network, lr=1.0):
 
         self.network = network
-        self.optimizer = optim.SGD(self.network.parameters(), lr=lr)
+        self.optimizer = GeneticSGD(self.network.parameters(), lr=lr)
         self.criterion = nn.MSELoss()
 
     def optimize(self, I_ext, target_firing_rate, num_epochs=100, time_sim=100):
@@ -40,3 +41,59 @@ class Dynalearn:
         spikes = torch.mean(V_histories, dim=0)
         mean_potential = nn.Parameter(spikes.mean(dim=0))
         return mean_potential
+
+
+class GeneticSGD(Optimizer):
+    def __init__(self, params, lr=0.1, momentum=0, dampening=0,
+                 weight_decay=0, nesterov=False, gsdr=True, rdelta=0.1, ralpha=0.9):
+        defaults = dict(lr=lr, momentum=momentum, dampening=dampening,
+                        weight_decay=weight_decay, nesterov=nesterov,
+                        gsdr=gsdr, rdelta=rdelta, ralpha=ralpha)
+        super(GeneticSGD, self).__init__(params, defaults)
+        self.best_loss = float('inf')
+        self.best_params = None
+
+    def step(self, closure=None):
+        loss = None
+        if closure is not None:
+            loss = closure()
+
+        for group in self.param_groups:
+            weight_decay = group['weight_decay']
+            momentum = group['momentum']
+            dampening = group['dampening']
+            nesterov = group['nesterov']
+            gsdr = group['gsdr']
+            rdelta = group['rdelta']
+            ralpha = group['ralpha']
+
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                d_p = p.grad.data
+                if weight_decay != 0:
+                    d_p.add_(weight_decay, p.data)
+                if momentum != 0:
+                    param_state = self.state[p]
+                    if 'momentum_buffer' not in param_state:
+                        buf = param_state['momentum_buffer'] = torch.clone(d_p).detach()
+                    else:
+                        buf = param_state['momentum_buffer']
+                        buf.mul_(momentum).add_(1 - dampening, d_p)
+                    if nesterov:
+                        d_p = d_p.add(momentum, buf)
+                    else:
+                        d_p = buf
+
+                if gsdr:
+                    normal = dist.Normal(0, 1)
+                    random_normal = normal.sample(d_p.size())
+                    d_p = d_p.add(ralpha * rdelta * random_normal, d_p * (1 - ralpha))
+
+                p.data.add_(-group['lr'], d_p)
+
+        if loss < self.best_loss:
+            self.best_loss = loss
+            self.best_params = [p.clone().detach() for group in self.param_groups for p in group['params']]
+
+        return loss
