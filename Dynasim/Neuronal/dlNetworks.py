@@ -80,12 +80,12 @@ class HHNeurons(nn.Module):
         }
 
         # Synaptic conductances and reversal potentials
-        self.g_AMPA = torch.Tensor([0.1]).requires_grad_(True).to(self.device)
-        self.g_GABAa = torch.Tensor([0.1]).requires_grad_(False).to(self.device)
-        self.g_GABAb = torch.Tensor([0.1]).requires_grad_(False).to(self.device)
-        self.g_NMDA = torch.Tensor([0.1]).requires_grad_(False).to(self.device)
-        self.g_ACh = torch.Tensor([0.1]).requires_grad_(False).to(self.device)
-        self.g_D1 = torch.Tensor([0.1]).requires_grad_(False).to(self.device)
+        self.g_AMPA = torch.Tensor([0.25]).requires_grad_(True).to(self.device)
+        self.g_GABAa = torch.Tensor([0.25]).requires_grad_(False).to(self.device)
+        self.g_GABAb = torch.Tensor([0.25]).requires_grad_(False).to(self.device)
+        self.g_NMDA = torch.Tensor([0.25]).requires_grad_(False).to(self.device)
+        self.g_ACh = torch.Tensor([0.25]).requires_grad_(False).to(self.device)
+        self.g_D1 = torch.Tensor([0.25]).requires_grad_(False).to(self.device)
 
         self.E_AMPA = torch.Tensor([0.0]).requires_grad_(False).to(self.device)
         self.E_GABAa = torch.Tensor([-70.0]).requires_grad_(False).to(self.device)
@@ -153,6 +153,13 @@ class HHNeurons(nn.Module):
             self.s_NMDA = torch.add(self.s_NMDA, - self.s_NMDA / 100.0, alpha=self.dt)
             self.s_ACh = torch.add(self.s_ACh, - self.s_ACh / 50.0, alpha=self.dt)
             self.s_D1 = torch.add(self.s_D1, - self.s_D1 / 30.0, alpha=self.dt)
+
+            self.s_AMPA = torch.matmul(self.synaptic_weights, self.s_AMPA)
+            self.s_GABAa = torch.matmul(self.synaptic_weights, self.s_GABAa)
+            self.s_GABAb = torch.matmul(self.synaptic_weights, self.s_GABAb)
+            self.s_NMDA = torch.matmul(self.synaptic_weights, self.s_NMDA)
+            self.s_ACh = torch.matmul(self.synaptic_weights, self.s_ACh)
+            self.s_D1 = torch.matmul(self.synaptic_weights, self.s_D1)
 
             I_AMPA = torch.mul(self.g_AMPA * self.s_AMPA * (V - self.E_AMPA), AMPA_input)
             I_GABAa = torch.mul(self.g_GABAa * self.s_GABAa * (V - self.E_GABAa), GABAa_input)
